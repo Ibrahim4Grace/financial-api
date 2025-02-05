@@ -1,4 +1,4 @@
-import { TokenService } from '@/utils/index';
+import { TokenService } from '../utils';
 import otpGenerator from 'otp-generator';
 import bcrypt from 'bcryptjs';
 

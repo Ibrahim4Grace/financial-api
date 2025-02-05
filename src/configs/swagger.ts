@@ -1,6 +1,9 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { version } from '../../package.json';
 import { allUserDocs } from '../docs/index';
+import dotenv from "dotenv";
+
+dotenv.config()
 
 const swaggerOptions: swaggerJsdoc.Options = {
   definition: {

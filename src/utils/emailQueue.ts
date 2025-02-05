@@ -1,6 +1,6 @@
-import { connectRabbitMQ } from '@/configs/index';
-import { sendMail, log } from '@/utils/index';
-import { EmailData } from '@/types/index';
+import { connectRabbitMQ } from '../configs/index';
+import { sendMail, log } from '../utils';
+import { EmailData } from '../types';
 
 const QUEUE_NAME = 'emailQueue';
 

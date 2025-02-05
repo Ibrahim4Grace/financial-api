@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
-import { EmailData } from '@/types/index';
-import { ServerError } from '@/middlewares/index';
+import { EmailData } from '../types';
+import { ServerError } from '../middlewares';
 
 export const sendMail = async (emailcontent: EmailData) => {
   const transporter = nodemailer.createTransport({
