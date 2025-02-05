@@ -61,7 +61,14 @@ const setupGracefulShutdown = (): void => {
 
 const start = async () => {
   const port = process.env.PORT || 3000;
-  await AppDataSource.initialize();
+  // await AppDataSource.initialize();
+  try {
+    await AppDataSource.initialize();
+    console.log('Data Source has been initialized!');
+  } catch (error) {
+    console.error('Error during Data Source initialization:', error);
+    process.exit(1); // Exit the process if initialization fails
+  }
   await initializeRabbitMQ();
   setupGracefulShutdown();
   app.listen(port, () => console.log(`App listening on port ${port}!`));

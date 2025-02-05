@@ -1,6 +1,7 @@
 import { User, Admin } from '@/entity/index';
 import bcrypt from 'bcryptjs';
-import { AppDataSource, userRepo } from '../data-source';
+import { Repository } from 'typeorm';
+import { AppDataSource } from '../data-source';
 import {
   TokenService,
   EmailQueueService,
@@ -30,9 +31,6 @@ export class AuthService {
   // public userRepo = AppDataSource.getRepository(User);
   // public adminRepo = AppDataSource.getRepository(Admin);
 
-  // public userRepository = AppDataSource.getRepository(Admin);
-  // export const userRepo = AppDataSource.getRepository(User);
-
   // private async findUserByEmail(email: string): Promise<User | null> {
   //   return this.userRepository.findOne({ where: { email } });
   // }
@@ -52,37 +50,43 @@ export class AuthService {
     payload: RegisterUserto
   ): Promise<RegistrationResponse> {
     console.log('service registrationData', payload);
+
+    const userRepo = AppDataSource.getRepository(User);
+    console.log('user after userRepo', userRepo);
+
+    const { name, email, password } = payload;
+
+    const user = new User();
+    user.name = name;
+    user.email = email;
+    user.password = password;
+    console.log('user after user', user);
+
+    await userRepo.save(user);
+
     // console.log('userData', registrationData);
     // const existingUser = await this.findUserByEmail(registrationData.email);
     // if (existingUser) {
     //   throw new Conflict('User with this email already exists');
     // }
-
     // const userRepo = AppDataSource.getRepository(User);
-
-    const { name, email, password } = payload;
-
-    const user = await userRepo.create({ name, email, password });
-    user.save();
+    // console.log('user after userRepo', userRepo);
+    // const { name, email, password } = payload;
 
     // const user = new User();
     // user.name = name;
     // user.email = email;
+    // user.password = password;
+    // console.log('user after user', user);
+    // // const user = this.userRepo.create({ name, email, password });
+    // // console.log('user after create', user);
+    // // await this.userRepo.save(user);
+
+    // await userRepo.save(user);
 
     // const user = await this.userRepo.create({
     //   ...registrationData,
     // });
-
-    // console.log('user after create', user);
-    // const savedUser = await this.userRepository.save(user);
-    // console.log('user after save', savedUser);
-    // Assuming `User` is your entity/model class
-    // const user = new User();
-    // user.name = registrationData.name;
-    // user.email = registrationData.email;
-    // user.password = registrationData.password;
-    // user.isEmailVerified = false;
-
     // console.log('user after create', user);
 
     // Save the user to the database

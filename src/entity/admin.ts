@@ -24,9 +24,6 @@ export class Admin extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
   password!: string;
 
-  @Column({ type: 'int' })
-  age: number;
-
   @Column({ default: false })
   isEmailVerified: boolean;
 
