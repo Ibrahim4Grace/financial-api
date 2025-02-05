@@ -6,7 +6,6 @@ tmp/
 dist/
 temp/
 .env
-src/entity
 src/ormconfig.ts
 yarn.lock
 build
