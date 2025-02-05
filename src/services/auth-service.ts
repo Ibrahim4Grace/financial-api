@@ -1,31 +1,11 @@
-import { User, Admin } from '@/entity/index';
+import { User, Admin } from '../entity';
 import bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../data-source';
-import {
-  TokenService,
-  EmailQueueService,
-  generateEmailVerificationOTP,
-} from '@/utils/index';
-import {
-  IUser,
-  RegisterUserto,
-  RegistrationResponse,
-  loginResponse,
-  LoginCredentials,
-} from '@/types/index';
-import {
-  sendOTPByEmail,
-  welcomeEmail,
-  PasswordResetEmail,
-} from '@/email-templates/index';
-import {
-  Conflict,
-  ResourceNotFound,
-  BadRequest,
-  Forbidden,
-  Unauthorized,
-} from '@/middlewares/index';
+import { generateEmailVerificationOTP, EmailQueueService } from '../utils';
+import { IUser, RegisterUserto, RegistrationResponse } from '../types';
+import { sendOTPByEmail } from '../email-templates';
+import { Conflict, ResourceNotFound, } from '../middlewares';
 
 export class AuthService {
   // public userRepo = AppDataSource.getRepository(User);
@@ -49,10 +29,8 @@ export class AuthService {
   public async register(
     payload: RegisterUserto
   ): Promise<RegistrationResponse> {
-    console.log('service registrationData', payload);
 
     const userRepo = AppDataSource.getRepository(User);
-    console.log('user after userRepo', userRepo);
 
     const { name, email, password } = payload;
 
@@ -60,26 +38,23 @@ export class AuthService {
     user.name = name;
     user.email = email;
     user.password = password;
-    console.log('user after user', user);
 
+    console.log(user);
+    await userRepo.findOneBy({ email });
     await userRepo.save(user);
 
-    // console.log('userData', registrationData);
     // const existingUser = await this.findUserByEmail(registrationData.email);
     // if (existingUser) {
     //   throw new Conflict('User with this email already exists');
     // }
     // const userRepo = AppDataSource.getRepository(User);
-    // console.log('user after userRepo', userRepo);
     // const { name, email, password } = payload;
 
     // const user = new User();
     // user.name = name;
     // user.email = email;
     // user.password = password;
-    // console.log('user after user', user);
     // // const user = this.userRepo.create({ name, email, password });
-    // // console.log('user after create', user);
     // // await this.userRepo.save(user);
 
     // await userRepo.save(user);
@@ -87,11 +62,8 @@ export class AuthService {
     // const user = await this.userRepo.create({
     //   ...registrationData,
     // });
-    // console.log('user after create', user);
 
     // Save the user to the database
-
-    // console.log('user after save', savedUser);
 
     const { otp, verificationToken } = await generateEmailVerificationOTP(
       user.id,
@@ -156,7 +128,6 @@ export class AuthService {
   //   if (!user) {
   //     throw new ResourceNotFound('User not found');
   //   }
-
   //   const { otp, verificationToken } = await generateEmailVerificationOTP(
   //     user.id,
   //     user.email

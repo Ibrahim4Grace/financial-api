@@ -1,4 +1,4 @@
-import { EmailData } from '@/types/index';
+import { EmailData } from '../types';
 
 export const sendOTPByEmail = (
   user: { name: string; email: string },

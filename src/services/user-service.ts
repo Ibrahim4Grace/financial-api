@@ -1,14 +1,14 @@
-import { User } from '@/entity/index';
+import { User } from '../entity';
 import { AppDataSource } from '../data-source';
-import { TokenService } from '@/utils/index';
+import { TokenService } from '../utils';
 import bcrypt from 'bcryptjs';
-import { LoginCredentials } from '@/types/index';
+import { LoginCredentials } from '../types';
 import {
   IUser,
   RegisterUserto,
   RegistrationResponse,
   loginResponse,
-} from '@/types/index';
+} from '../types';
 
 import {
   Conflict,
@@ -16,7 +16,7 @@ import {
   BadRequest,
   Forbidden,
   Unauthorized,
-} from '@/middlewares/index';
+} from '../middlewares';
 
 export class UserService {
   private userRepository = AppDataSource.getRepository(User);

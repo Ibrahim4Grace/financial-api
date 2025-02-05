@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '@/services/index';
-import { RegisterUserto } from '@/types/index';
-import { TokenService } from '@/utils/index';
+import { AuthService } from '../services';
+import { RegisterUserto } from '../types';
+import { TokenService } from '../utils';
 import {
   sendJsonResponse,
   asyncHandler,
   BadRequest,
-} from '@/middlewares/index';
+} from '../middlewares';
 
 const authService = new AuthService();
 

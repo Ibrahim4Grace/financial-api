@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { Unauthorized } from '@/middlewares/index';
-import { JwtPayload, EmailVerificationPayload } from '@/types/index';
+import { Unauthorized } from '../middlewares';
+import { JwtPayload, EmailVerificationPayload } from '../types';
 
 export class TokenService {
   // Authentication token methods

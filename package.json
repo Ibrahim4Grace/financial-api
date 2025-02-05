@@ -4,11 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/src/app.js",
-    "dev": "nodemon --watch src --ext ts --exec ts-node src/app.ts",
+    "start": "ts-node --transpile-only ./src/app",
+    "dev": "ts-node-dev --respawn --transpile-only ./src/app",
     "build": "tsc",
     "docker": "docker-compose up",
     "typeorm": "typeorm-ts-node-commonjs",
+    "reset-db": "typeorm-ts-node-commonjs schema:drop -d ./src/data-source && typeorm-ts-node-commonjs schema:sync -d ./src/data-source",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d ./src/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d ./src/data-source.ts"
   },
@@ -27,9 +28,11 @@
     "class-validator": "^0.14.1",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.13",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
     "module-alias": "^2.2.3",
     "morgan": "^1.10.0",
     "nodemailer": "^6.10.0",
@@ -40,6 +43,7 @@
     "reflect-metadata": "^0.2.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "ts-node-dev": "^2.0.0",
     "typeorm": "^0.3.20",
     "zod": "^3.24.1"
   },
@@ -57,17 +61,5 @@
     "tsc-watch": "^6.2.1",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3"
-  },
-  "_moduleAliases": {
-    "@/controllers": "dist/controllers",
-    "@/entity": "dist/entity",
-    "@/email-templates": "dist/email-templates",
-    "@/services": "dist/services",
-    "@/schemas": "dist/schemas",
-    "@/routes": "dist/routes",
-    "@/configs": "dist/configs",
-    "@/utils": "dist/utils",
-    "@/types": "dist/types",
-    "@/middlewares": "dist/middlewares"
   }
 }

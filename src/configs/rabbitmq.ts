@@ -1,5 +1,5 @@
 import amqplib, { Connection, Channel } from 'amqplib';
-import { log } from '@/utils/index';
+import { log } from '../utils';
 
 let connection: Connection;
 let channel: Channel;
