@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { UserService } from '../services';
-import { User } from '../entity';
+import { User } from '../entities';
 import { RegisterUserto } from '../types';
 import { TokenService } from '../utils';
 import {

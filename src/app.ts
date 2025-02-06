@@ -1,6 +1,5 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import 'module-alias/register';
 import swaggerUi from 'swagger-ui-express';
 import dotenv from 'dotenv';
 import { errorHandler, routeNotFound } from './middlewares';
@@ -12,67 +11,72 @@ import { log } from './utils';
 
 dotenv.config();
 
+class App {
+  private app: express.Application;
 
-const app = express();
-
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ limit: '15mb', extended: true }));
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs));
-
-// Routes
-app.use('/api/v1', router);
-
-// const initializeRabbitMQ = async (): Promise<void> => {
-//   try {
-//     await EmailQueueService.initializeEmailQueue();
-//     await EmailQueueService.consumeEmails();
-//     log.info('RabbitMQ initialized successfully');
-//   } catch (error) {
-//     log.error('Failed to initialize RabbitMQ:', error);
-//     process.exit(1);
-//   }
-// };
-
-app.get('/', (req: Request, res: Response) => {
-  res.send('Ts  Authentication');
-});
-
-// Error handling middlewares
-app.use(errorHandler);
-app.use(routeNotFound);
-
-// const setupGracefulShutdown = (): void => {
-//   const shutdown = async (signal: string) => {
-//     log.info(`${signal} received. Shutting down gracefully...`);
-//     try {
-//       await closeRabbitMQ();
-//       log.info('RabbitMQ connection closed');
-//       process.exit(0);
-//     } catch (error) {
-//       log.error('Error during shutdown:', error);
-//       process.exit(1);
-//     }
-//   };
-
-//   ['SIGINT', 'SIGTERM'].forEach((signal) =>
-//     process.on(signal, () => shutdown(signal))
-//   );
-// };
-
-const start = async () => {
-  const port = process.env.PORT || 3000;
-  // await AppDataSource.initialize();
-  try {
-    await AppDataSource.initialize();
-    console.log('Data Source has been initialized!');
-  } catch (error) {
-    console.error('Error during Data Source initialization:', error);
-    process.exit(1); // Exit the process if initialization fails
+  constructor() {
+    this.app = express();
+    this.configureMiddleware();
+    this.configureRoutes();
+    this.configureErrorHandling();
   }
-  // await initializeRabbitMQ();
-  // setupGracefulShutdown();
-  app.listen(port, () => console.log(`App listening on port ${port}!`));
-};
 
-start();
+  private configureMiddleware(): void {
+    this.app.use(cors(corsOptions));
+    this.app.use(express.json({ limit: '15mb' }));
+    this.app.use(express.urlencoded({ limit: '15mb', extended: true }));
+    this.app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs));
+  }
+
+  private configureRoutes(): void {
+    this.app.use('/api/v1', router);
+    this.app.get('/', (req: Request, res: Response) => {
+      res.send('Ts Typeorm Authentication');
+    });
+  }
+
+  private configureErrorHandling(): void {
+    this.app.use(errorHandler);
+    this.app.use(routeNotFound);
+  }
+
+  private async initializeRabbitMQ(): Promise<void> {
+    try {
+      await EmailQueueService.initializeEmailQueue();
+      await EmailQueueService.consumeEmails();
+      log.info('RabbitMQ initialized successfully');
+    } catch (error) {
+      log.error('Failed to initialize RabbitMQ:', error);
+      process.exit(1);
+    }
+  }
+
+  private setupGracefulShutdown(): void {
+    const shutdown = async (signal: string) => {
+      log.info(`${signal} received. Shutting down gracefully...`);
+      try {
+        await closeRabbitMQ();
+        log.info('RabbitMQ connection closed');
+        process.exit(0);
+      } catch (error) {
+        log.error('Error during shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    ['SIGINT', 'SIGTERM'].forEach((signal) =>
+      process.on(signal, () => shutdown(signal))
+    );
+  }
+
+  public async start(): Promise<void> {
+    const port = process.env.PORT || 3000;
+    await AppDataSource.initialize();
+    await this.initializeRabbitMQ();
+    this.setupGracefulShutdown();
+    this.app.listen(port, () => log.info(`App listening on port ${port}!`));
+  }
+}
+
+const app = new App();
+app.start();

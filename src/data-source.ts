@@ -1,8 +1,6 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
-import { User } from './entity/user';
-import { Admin } from './entity/admin';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -12,23 +10,8 @@ export const AppDataSource = new DataSource({
   password: process.env.POSTGRESDB_PASSWORD,
   database: process.env.POSTGRESDB_DATABASE,
   synchronize: false,
-  logging: false,
-  // logging: ['error', 'warn'],
-  entities: [User, Admin],
-  // entities: ['src/entity/**/*.ts'],
+  logging: true,
+  entities: ['src/entities/**/*.ts'],
   migrations: ['src/migrations/**/*.ts'],
   subscribers: [],
 });
-
-// export async function initializeDataSource() {
-//   if (!AppDataSource.isInitialized) {
-//     await AppDataSource.initialize()
-//       .then((dataSource) => {
-//         console.log('dataSource', dataSource);
-//       })
-//       .catch((error) => {
-//         console.log('error', error);
-//       });
-//   }
-//   return AppDataSource;
-// }

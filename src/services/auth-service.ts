@@ -1,19 +1,42 @@
-import { User, Admin } from '../entity';
+import { User } from '../entities';
 import bcrypt from 'bcryptjs';
-import { Repository } from 'typeorm';
 import { AppDataSource } from '../data-source';
-import { generateEmailVerificationOTP, EmailQueueService } from '../utils';
-import { IUser, RegisterUserto, RegistrationResponse } from '../types';
-import { sendOTPByEmail } from '../email-templates';
-import { Conflict, ResourceNotFound, } from '../middlewares';
+import { AuthUtils, EmailQueueService, TokenService } from '../utils';
+import {
+  IUser,
+  RegisterUserto,
+  RegistrationResponse,
+  LoginCredentials,
+  loginResponse,
+} from '../types';
+import {
+  sendOTPByEmail,
+  welcomeEmail,
+  PasswordResetEmail,
+} from '../email-templates';
+import {
+  Conflict,
+  BadRequest,
+  ResourceNotFound,
+  Forbidden,
+  Unauthorized,
+} from '../middlewares';
 
 export class AuthService {
-  // public userRepo = AppDataSource.getRepository(User);
-  // public adminRepo = AppDataSource.getRepository(Admin);
+  public userRepo = AppDataSource.getRepository(User);
 
-  // private async findUserByEmail(email: string): Promise<User | null> {
-  //   return this.userRepository.findOne({ where: { email } });
-  // }
+  private async findUserByEmail(email: string): Promise<User | null> {
+    return this.userRepo.findOne({ where: { email } });
+  }
+
+  private async verifyUserOtp(verificationToken: string): Promise<User | null> {
+    return this.userRepo
+      .createQueryBuilder('user')
+      .where('user.emailVerificationOTP @> :token::jsonb', {
+        token: JSON.stringify({ verificationToken }),
+      })
+      .getOne();
+  }
 
   private sanitizeUser(user: IUser): Partial<IUser> {
     return {
@@ -29,48 +52,20 @@ export class AuthService {
   public async register(
     payload: RegisterUserto
   ): Promise<RegistrationResponse> {
+    const existingUser = await this.findUserByEmail(payload.email);
+    if (existingUser) {
+      throw new Conflict('User with this email already exists');
+    }
 
-    const userRepo = AppDataSource.getRepository(User);
+    const user = this.userRepo.create({
+      ...payload,
+    });
+    const newUser = await this.userRepo.save(user);
 
-    const { name, email, password } = payload;
+    const { otp, verificationToken } =
+      await AuthUtils.generateEmailVerificationOTP(newUser.id, newUser.email);
 
-    const user = new User();
-    user.name = name;
-    user.email = email;
-    user.password = password;
-
-    console.log(user);
-    await userRepo.findOneBy({ email });
-    await userRepo.save(user);
-
-    // const existingUser = await this.findUserByEmail(registrationData.email);
-    // if (existingUser) {
-    //   throw new Conflict('User with this email already exists');
-    // }
-    // const userRepo = AppDataSource.getRepository(User);
-    // const { name, email, password } = payload;
-
-    // const user = new User();
-    // user.name = name;
-    // user.email = email;
-    // user.password = password;
-    // // const user = this.userRepo.create({ name, email, password });
-    // // await this.userRepo.save(user);
-
-    // await userRepo.save(user);
-
-    // const user = await this.userRepo.create({
-    //   ...registrationData,
-    // });
-
-    // Save the user to the database
-
-    const { otp, verificationToken } = await generateEmailVerificationOTP(
-      user.id,
-      user.email
-    );
-
-    const emailOptions = sendOTPByEmail(user, otp);
+    const emailOptions = sendOTPByEmail(newUser, otp);
     await EmailQueueService.addEmailToQueue(emailOptions);
 
     return {
@@ -79,217 +74,208 @@ export class AuthService {
     };
   }
 
-  // public async verifyRegistrationOTP(
-  //   userId: string,
-  //   otp: string
-  // ): Promise<IUser> {
-  //   const user = await this.userRepository.findOne({
-  //     where: {
-  //       id: userId,
-  //       isEmailVerified: false,
-  //       emailVerificationOTP: {
-  //         expiresAt: new Date(),
-  //       },
-  //     },
-  //   });
+  public async verifyRegistrationOTP(
+    verificationToken: string,
+    otp: string
+  ): Promise<IUser> {
+    console.log('Verification Token:', verificationToken); // Log the token
+    console.log('OTP:', otp); // Log the OTP
 
-  //   if (!user) {
-  //     throw new BadRequest('Invalid or expired verification session');
-  //   }
+    const validateUser = await this.verifyUserOtp(verificationToken);
+    console.log('Validated User:', validateUser); // Log the validated user
 
-  //   if (!user?.emailVerificationOTP?.otp) {
-  //     throw new BadRequest('No OTP found for this user');
-  //   }
+    if (!validateUser) {
+      throw new BadRequest('Invalid or expired verification session');
+    }
 
-  //   if (new Date() > user.emailVerificationOTP.expiresAt) {
-  //     throw new BadRequest('OTP has expired');
-  //   }
+    const tokenPayload = await TokenService.verifyEmailToken(verificationToken);
+    console.log('Token Payload:', tokenPayload); // Log the token payload
+    if (!tokenPayload || !tokenPayload.email) {
+      throw new BadRequest('Invalid or expired reset token');
+    }
 
-  //   const isValid = await bcrypt.compare(
-  //     otp,
-  //     user.emailVerificationOTP.otp.toString()
-  //   );
-  //   if (!isValid) {
-  //     throw new BadRequest('Invalid OTP');
-  //   }
+    const user = await this.findUserByEmail(tokenPayload.email);
+    if (!user) {
+      throw new BadRequest('Invalid or expired reset token');
+    }
 
-  //   user.emailVerificationOTP = null;
-  //   user.isEmailVerified = true;
-  //   await this.userRepository.save(user);
+    if (!user.emailVerificationOTP?.otp) {
+      throw new BadRequest('No OTP found for this user');
+    }
 
-  //   const emailOptions = welcomeEmail(user);
-  //   await EmailQueueService.addEmailToQueue(emailOptions);
+    if (new Date() > user.emailVerificationOTP.expiresAt) {
+      throw new BadRequest('Verification session has expired');
+    }
+    const isValid = await bcrypt.compare(
+      otp,
+      user.emailVerificationOTP.otp.toString()
+    );
+    if (!isValid) {
+      throw new BadRequest('Invalid OTP');
+    }
 
-  //   return user;
-  // }
+    user.emailVerificationOTP = null;
+    user.isEmailVerified = true;
+    await this.userRepo.save(user);
 
-  // public async forgotPassword(email: string): Promise<string> {
-  //   const user = await this.findUserByEmail(email.toLowerCase().trim());
-  //   if (!user) {
-  //     throw new ResourceNotFound('User not found');
-  //   }
-  //   const { otp, verificationToken } = await generateEmailVerificationOTP(
-  //     user.id,
-  //     user.email
-  //   );
+    const emailOptions = welcomeEmail(user);
+    await EmailQueueService.addEmailToQueue(emailOptions);
 
-  //   await this.userRepository.save(user);
+    return user;
+  }
 
-  //   const emailOptions = sendOTPByEmail(user, otp);
-  //   await EmailQueueService.addEmailToQueue(emailOptions);
+  public async forgotPassword(email: string): Promise<string> {
+    console.log('Email received:', email);
+    const user = await this.findUserByEmail(email);
+    console.log('User found:', user);
 
-  //   return verificationToken;
-  // }
+    if (!user) {
+      throw new ResourceNotFound('User not found');
+    }
+    const { otp, verificationToken } =
+      await AuthUtils.generateEmailVerificationOTP(user.id, user.email);
 
-  // public async verifyResetPasswordOTP(
-  //   verificationToken: string,
-  //   otp: string
-  // ): Promise<IUser> {
-  //   // const user = await this.userRepository.findOne({
-  //   //   where: {
-  //   //     emailVerificationOTP: {
-  //   //       verificationToken: verificationToken,
-  //   //       expiresAt: new Date(),
-  //   //     },
-  //   //   },
-  //   // });
+    await this.userRepo.save(user);
 
-  //   // if (!user) {
-  //   //   throw new BadRequest('Invalid or expired reset token');
-  //   // }
-  //   // Step 1: Verify the token and extract the payload
-  //   const payload = await TokenService.verifyEmailToken(verificationToken);
-  //   if (!payload || !payload.email) {
-  //     throw new BadRequest('Invalid or expired reset token');
-  //   }
-  //   // Step 2: Find the user by email
-  //   const user = await this.findUserByEmail(payload.email);
-  //   if (!user) {
-  //     throw new BadRequest('Invalid or expired reset token');
-  //   }
+    const emailOptions = sendOTPByEmail(user, otp);
+    await EmailQueueService.addEmailToQueue(emailOptions);
 
-  //   if (!user.emailVerificationOTP?.otp) {
-  //     throw new BadRequest('No OTP found for this user');
-  //   }
+    return verificationToken;
+  }
 
-  //   if (new Date() > user.emailVerificationOTP.expiresAt) {
-  //     throw new BadRequest('OTP has expired');
-  //   }
+  public async verifyResetPasswordOTP(
+    verificationToken: string,
+    otp: string
+  ): Promise<IUser> {
+    const validateUser = await this.verifyUserOtp(verificationToken);
+    if (!validateUser) {
+      throw new BadRequest('Invalid or expired verification session');
+    }
 
-  //   const isValid = await bcrypt.compare(
-  //     otp,
-  //     user.emailVerificationOTP.otp.toString()
-  //   );
-  //   if (!isValid) {
-  //     throw new BadRequest('Invalid OTP');
-  //   }
+    const payload = await TokenService.verifyEmailToken(verificationToken);
+    if (!payload || !payload.email) {
+      throw new BadRequest('Invalid or expired reset token');
+    }
 
-  //   return user;
-  // }
+    const user = await this.findUserByEmail(payload.email);
+    if (!user) {
+      throw new BadRequest('Invalid or expired reset token');
+    }
 
-  // public async resetPassword(
-  //   verificationToken: string,
-  //   newPassword: string
-  // ): Promise<void> {
-  //   // const user = await this.userRepository.findOne({
-  //   //   where: {
-  //   //     emailVerificationOTP: {
-  //   //       verificationToken: verificationToken,
-  //   //       expiresAt: new Date(),
-  //   //     },
-  //   //   },
-  //   // });
+    if (!user.emailVerificationOTP?.otp) {
+      throw new BadRequest('No OTP found for this user');
+    }
 
-  //   // if (!user) {
-  //   //   throw new BadRequest('Invalid or expired reset token');
-  //   // }
+    if (new Date() > user.emailVerificationOTP.expiresAt) {
+      throw new BadRequest('Verification session has expired');
+    }
 
-  //   const payload = await TokenService.verifyEmailToken(verificationToken);
-  //   if (!payload || !payload.email) {
-  //     throw new BadRequest('Invalid or expired reset token');
-  //   }
+    const isValid = await bcrypt.compare(
+      otp,
+      user.emailVerificationOTP.otp.toString()
+    );
+    if (!isValid) {
+      throw new BadRequest('Invalid OTP');
+    }
 
-  //   const user = await this.findUserByEmail(payload.email);
-  //   if (!user) {
-  //     throw new BadRequest('Invalid or expired reset token');
-  //   }
+    return user;
+  }
 
-  //   // Add the old password to history before updating
-  //   user.passwordHistory = user.passwordHistory ?? [];
-  //   const isPasswordUsedBefore = user.passwordHistory.some((entry) =>
-  //     bcrypt.compareSync(newPassword, entry.password)
-  //   );
+  public async resetPassword(
+    verificationToken: string,
+    newPassword: string
+  ): Promise<void> {
+    const validateUser = await this.verifyUserOtp(verificationToken);
+    if (validateUser) {
+      throw new BadRequest('Invalid or expired verification session');
+    }
 
-  //   if (isPasswordUsedBefore) {
-  //     throw new BadRequest(
-  //       'This password has been used before. Please choose a new password.'
-  //     );
-  //   }
+    const payload = await TokenService.verifyEmailToken(verificationToken);
+    if (!payload || !payload.email) {
+      throw new BadRequest('Invalid or expired reset token');
+    }
 
-  //   user.passwordHistory.push({
-  //     password: user.password,
-  //     changedAt: new Date(),
-  //   });
+    const user = await this.findUserByEmail(payload.email);
+    if (!user) {
+      throw new BadRequest('Invalid or expired reset token');
+    }
 
-  //   const PASSWORD_HISTORY_LIMIT = 5;
-  //   if (user.passwordHistory.length > PASSWORD_HISTORY_LIMIT) {
-  //     user.passwordHistory = user.passwordHistory.slice(
-  //       -PASSWORD_HISTORY_LIMIT
-  //     );
-  //   }
+    // Add the old password to history before updating
+    user.passwordHistory = user.passwordHistory ?? [];
+    const isPasswordUsedBefore = user.passwordHistory.some((entry) =>
+      bcrypt.compareSync(newPassword, entry.password)
+    );
 
-  //   user.password = newPassword;
-  //   user.emailVerificationOTP = null;
-  //   user.failedLoginAttempts = 0;
-  //   user.isLocked = false;
-  //   await this.userRepository.save(user);
+    if (isPasswordUsedBefore) {
+      throw new BadRequest(
+        'This password has been used before. Please choose a new password.'
+      );
+    }
 
-  //   const emailOptions = PasswordResetEmail(user);
-  //   await EmailQueueService.addEmailToQueue(emailOptions);
-  // }
+    user.passwordHistory.push({
+      password: user.password,
+      changedAt: new Date(),
+    });
 
-  // public async login(credentials: LoginCredentials): Promise<loginResponse> {
-  //   const user = await this.findUserByEmail(credentials.email);
-  //   if (!user) {
-  //     throw new ResourceNotFound('Invalid email or password');
-  //   }
+    const PASSWORD_HISTORY_LIMIT = 5;
+    if (user.passwordHistory.length > PASSWORD_HISTORY_LIMIT) {
+      user.passwordHistory = user.passwordHistory.slice(
+        -PASSWORD_HISTORY_LIMIT
+      );
+    }
 
-  //   if (!user.isEmailVerified) {
-  //     throw new Forbidden('Verify your email before sign in.');
-  //   }
+    user.password = newPassword;
+    user.emailVerificationOTP = null;
+    user.failedLoginAttempts = 0;
+    user.isLocked = false;
+    await this.userRepo.save(user);
 
-  //   const isValid = await user.comparePassword(credentials.password);
-  //   if (!isValid) {
-  //     user.failedLoginAttempts += 1;
-  //     if (user.failedLoginAttempts >= 3) {
-  //       user.isLocked = true;
-  //       await this.userRepository.save(user);
-  //       throw new Forbidden(
-  //         'Your account has been locked due to multiple failed login attempts. Please reset your password.'
-  //       );
-  //     }
-  //     await this.userRepository.save(user);
-  //     throw new Unauthorized('Invalid email or password');
-  //   }
+    const emailOptions = PasswordResetEmail(user);
+    await EmailQueueService.addEmailToQueue(emailOptions);
+  }
 
-  //   user.failedLoginAttempts = 0;
-  //   await this.userRepository.save(user);
+  public async login(credentials: LoginCredentials): Promise<loginResponse> {
+    const user = await this.findUserByEmail(credentials.email);
+    if (!user) {
+      throw new ResourceNotFound('Invalid email or password');
+    }
 
-  //   const requestedRole = credentials.role || 'user';
-  //   if (!user.role.includes(requestedRole)) {
-  //     throw new Forbidden(
-  //       `You do not have permission to sign in as ${requestedRole}`
-  //     );
-  //   }
+    if (!user.isEmailVerified) {
+      throw new Forbidden('Verify your email before sign in.');
+    }
 
-  //   const token = TokenService.createAuthToken({
-  //     userId: user.id.toString(),
-  //     role: user.role,
-  //   });
+    const isValid = await user.comparePassword(credentials.password);
+    if (!isValid) {
+      user.failedLoginAttempts += 1;
+      if (user.failedLoginAttempts >= 3) {
+        user.isLocked = true;
+        await this.userRepo.save(user);
+        throw new Forbidden(
+          'Your account has been locked due to multiple failed login attempts. Please reset your password.'
+        );
+      }
+      await this.userRepo.save(user);
+      throw new Unauthorized('Invalid email or password');
+    }
 
-  //   return {
-  //     user: this.sanitizeUser(user),
-  //     token,
-  //   };
-  // }
+    user.failedLoginAttempts = 0;
+    await this.userRepo.save(user);
+
+    const requestedRole = credentials.role || 'user';
+    if (!user.role.includes(requestedRole)) {
+      throw new Forbidden(
+        `You do not have permission to sign in as ${requestedRole}`
+      );
+    }
+
+    const token = TokenService.createAuthToken({
+      userId: user.id,
+      role: user.role,
+    });
+
+    return {
+      user: this.sanitizeUser(user),
+      token,
+    };
+  }
 }

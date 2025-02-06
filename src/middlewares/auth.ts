@@ -1,10 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
 import jwt from 'jsonwebtoken';
-import { User } from '../entity';
+import { User } from '../entities';
 import { log } from '../utils/logger';
 import { ServerError } from '../middlewares';
-import { JwtPayload, AuthenticatedUser } from '../types/index';
+import { JwtPayload } from '../types/index';
 import { Repository } from 'typeorm';
 
 // export const authMiddleware = async (

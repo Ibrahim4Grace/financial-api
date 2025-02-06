@@ -48,29 +48,13 @@ export interface JwtPayload {
   userId: string;
 }
 
-export interface AuthenticatedUser {
-  userId: string;
-  email: string;
-  name: string;
-}
-
-// export interface IUserLogin {
+// export interface AuthenticatedUser {
+//   userId: string;
 //   email: string;
-//   password: string;
-// }
-
-// export interface EmailTemplate {
-//   subject: string;
-//   template: string;
+//   name: string;
 // }
 
 // export interface IPasswordHistoryEntry {
 //   password: string;
 //   changedAt: Date;
-// }
-
-// export interface emailVerificationOTP {
-//   otp: String;
-//   expiresAt: Date;
-//   verificationToken: String;
 // }

@@ -5,18 +5,6 @@
     "module": "commonjs",
     "rootDir": "src",
     "baseUrl": "./src",
-    // "paths": {
-    //   "@/controllers/*": ["controllers/*"],
-    //   "@/entity/*": ["entity/*"],
-    //   "@/email-templates/*": ["email-templates/*"],
-    //   "@/routes/*": ["routes/*"],
-    //   "@/services/*": ["services/*"],
-    //   "@/schemas/*": ["schemas/*"],
-    //   "@/utils/*": ["utils/*"],
-    //   "@/middlewares/*": ["middlewares/*"],
-    //   "@/configs/*": ["configs/*"],
-    //   "@/types/*": ["types/*"]
-    // },
     "outDir": "dist",
     "resolveJsonModule": true,
     "sourceMap": true,

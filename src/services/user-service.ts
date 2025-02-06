@@ -1,4 +1,4 @@
-import { User } from '../entity';
+import { User } from '../entities';
 import { AppDataSource } from '../data-source';
 import { TokenService } from '../utils';
 import bcrypt from 'bcryptjs';
