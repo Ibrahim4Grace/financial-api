@@ -1,4 +1,4 @@
-export const authUserDocs = {
+export const authDocs = {
   paths: {
     '/api/v1/auth/users/register': {
       post: {
@@ -22,22 +22,6 @@ export const authUserDocs = {
                   password: {
                     type: 'string',
                     example: 'strongpassword123',
-                  },
-                  phone: {
-                    type: 'number',
-                    example: '08097654321',
-                  },
-                  street: {
-                    type: 'string',
-                    example: '123 mary ave',
-                  },
-                  city: {
-                    type: 'string',
-                    example: 'Ikeja',
-                  },
-                  state: {
-                    type: 'string',
-                    example: 'LA',
                   },
                 },
               },
@@ -527,8 +511,8 @@ export const authUserDocs = {
   },
 };
 
-export const allUserDocs = {
+export const allAuthDocs = {
   paths: {
-    ...authUserDocs.paths,
+    ...authDocs.paths,
   },
 };

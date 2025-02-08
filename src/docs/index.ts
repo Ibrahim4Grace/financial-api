@@ -1,1 +1,1 @@
-export * from './user-doc';
+export * from './auth-doc';

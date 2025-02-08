@@ -41,7 +41,8 @@ export const registrationOTP = asyncHandler(
 
 export const forgotPassword = asyncHandler(
   async (req: Request, res: Response) => {
-    const resetToken = await authService.forgotPassword(req.body);
+    const { email } = req.body;
+    const resetToken = await authService.forgotPassword(email);
     sendJsonResponse(
       res,
       200,
@@ -92,6 +93,7 @@ export const resetPassword = asyncHandler(
 );
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const result = await authService.login(req.body);
+  const { email, password } = req.body;
+  const result = await authService.login({ email, password });
   sendJsonResponse(res, 200, 'Login successful', result);
 });

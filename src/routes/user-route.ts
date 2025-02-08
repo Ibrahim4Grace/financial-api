@@ -1,8 +1,22 @@
 import { Router } from 'express';
-import {} from '../controllers';
+import { UserController } from '../controllers';
+import { authentication, authorization } from '../middlewares';
 
 const userRoute = Router();
+const userController = new UserController();
 
-userRoute.post('/auth/google');
+userRoute.get(
+  '/',
+  authentication,
+  authorization(['user']),
+  userController.fetchUser
+);
+
+userRoute.put(
+  '/',
+  authentication,
+  authorization(['user']),
+  userController.updateUser
+);
 
 export default userRoute;

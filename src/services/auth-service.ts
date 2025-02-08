@@ -1,7 +1,7 @@
 import { User } from '../entities';
 import bcrypt from 'bcryptjs';
 import { AppDataSource } from '../data-source';
-import { AuthUtils, EmailQueueService, TokenService } from '../utils';
+import { AuthUtils, EmailQueueService, TokenService, encrypt } from '../utils';
 import {
   IUser,
   RegisterUserto,
@@ -52,14 +52,19 @@ export class AuthService {
   public async register(
     payload: RegisterUserto
   ): Promise<RegistrationResponse> {
-    const existingUser = await this.findUserByEmail(payload.email);
+    const { email, name, password } = payload;
+
+    const existingUser = await this.findUserByEmail(email);
     if (existingUser) {
       throw new Conflict('User with this email already exists');
     }
 
-    const user = this.userRepo.create({
-      ...payload,
-    });
+    const encryptedPassword = await encrypt.encryptpass(password);
+
+    const user = new User();
+    user.name = name;
+    user.email = email;
+    user.password = encryptedPassword;
     const newUser = await this.userRepo.save(user);
 
     const { otp, verificationToken } =
@@ -78,18 +83,12 @@ export class AuthService {
     verificationToken: string,
     otp: string
   ): Promise<IUser> {
-    console.log('Verification Token:', verificationToken); // Log the token
-    console.log('OTP:', otp); // Log the OTP
-
     const validateUser = await this.verifyUserOtp(verificationToken);
-    console.log('Validated User:', validateUser); // Log the validated user
-
     if (!validateUser) {
       throw new BadRequest('Invalid or expired verification session');
     }
 
     const tokenPayload = await TokenService.verifyEmailToken(verificationToken);
-    console.log('Token Payload:', tokenPayload); // Log the token payload
     if (!tokenPayload || !tokenPayload.email) {
       throw new BadRequest('Invalid or expired reset token');
     }
@@ -97,6 +96,10 @@ export class AuthService {
     const user = await this.findUserByEmail(tokenPayload.email);
     if (!user) {
       throw new BadRequest('Invalid or expired reset token');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequest('This email has already been verified.');
     }
 
     if (!user.emailVerificationOTP?.otp) {
@@ -125,17 +128,13 @@ export class AuthService {
   }
 
   public async forgotPassword(email: string): Promise<string> {
-    console.log('Email received:', email);
     const user = await this.findUserByEmail(email);
-    console.log('User found:', user);
-
     if (!user) {
       throw new ResourceNotFound('User not found');
     }
+
     const { otp, verificationToken } =
       await AuthUtils.generateEmailVerificationOTP(user.id, user.email);
-
-    await this.userRepo.save(user);
 
     const emailOptions = sendOTPByEmail(user, otp);
     await EmailQueueService.addEmailToQueue(emailOptions);
@@ -186,7 +185,7 @@ export class AuthService {
     newPassword: string
   ): Promise<void> {
     const validateUser = await this.verifyUserOtp(verificationToken);
-    if (validateUser) {
+    if (!validateUser) {
       throw new BadRequest('Invalid or expired verification session');
     }
 
@@ -200,7 +199,6 @@ export class AuthService {
       throw new BadRequest('Invalid or expired reset token');
     }
 
-    // Add the old password to history before updating
     user.passwordHistory = user.passwordHistory ?? [];
     const isPasswordUsedBefore = user.passwordHistory.some((entry) =>
       bcrypt.compareSync(newPassword, entry.password)
@@ -223,8 +221,8 @@ export class AuthService {
         -PASSWORD_HISTORY_LIMIT
       );
     }
-
-    user.password = newPassword;
+    const encryptedPassword = await encrypt.encryptpass(newPassword);
+    user.password = encryptedPassword;
     user.emailVerificationOTP = null;
     user.failedLoginAttempts = 0;
     user.isLocked = false;
@@ -234,8 +232,10 @@ export class AuthService {
     await EmailQueueService.addEmailToQueue(emailOptions);
   }
 
-  public async login(credentials: LoginCredentials): Promise<loginResponse> {
-    const user = await this.findUserByEmail(credentials.email);
+  public async login(payload: LoginCredentials): Promise<loginResponse> {
+    const { email, password } = payload;
+
+    const user = await this.findUserByEmail(email);
     if (!user) {
       throw new ResourceNotFound('Invalid email or password');
     }
@@ -244,7 +244,7 @@ export class AuthService {
       throw new Forbidden('Verify your email before sign in.');
     }
 
-    const isValid = await user.comparePassword(credentials.password);
+    const isValid = encrypt.comparepassword(user.password, password);
     if (!isValid) {
       user.failedLoginAttempts += 1;
       if (user.failedLoginAttempts >= 3) {
@@ -255,13 +255,13 @@ export class AuthService {
         );
       }
       await this.userRepo.save(user);
-      throw new Unauthorized('Invalid email or password');
+      throw new Unauthorized('Invalid email or passwords');
     }
 
     user.failedLoginAttempts = 0;
     await this.userRepo.save(user);
 
-    const requestedRole = credentials.role || 'user';
+    const requestedRole = payload.role || 'user';
     if (!user.role.includes(requestedRole)) {
       throw new Forbidden(
         `You do not have permission to sign in as ${requestedRole}`

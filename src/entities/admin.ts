@@ -15,13 +15,13 @@ export class Admin extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ nullable: false })
   name: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ nullable: false })
   email: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ nullable: false })
   password!: string;
 
   @Column({ default: false })
@@ -46,7 +46,7 @@ export class Admin extends BaseEntity {
   @Column({ default: false })
   isLocked: boolean;
 
-  @Column('text', { default: 'user' })
+  @Column('text', { default: 'admin' })
   role: string;
 
   @CreateDateColumn()
@@ -54,16 +54,4 @@ export class Admin extends BaseEntity {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  @BeforeInsert()
-  @BeforeUpdate()
-  async hashPassword() {
-    if (this.password && this.password.length > 0) {
-      this.password = await bcrypt.hash(this.password, 10);
-    }
-  }
-
-  async comparePassword(candidatePassword: string): Promise<boolean> {
-    return bcrypt.compare(candidatePassword, this.password);
-  }
 }

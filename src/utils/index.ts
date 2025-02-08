@@ -3,3 +3,4 @@ export * from './token';
 export * from './emailQueue';
 export * from './mailer';
 export * from './authUtils';
+export * from './encrypt';

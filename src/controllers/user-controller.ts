@@ -1,20 +1,34 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { UserService } from '../services';
-import { User } from '../entities';
-import { RegisterUserto } from '../types';
-import { TokenService } from '../utils';
 import {
-  validateData,
   sendJsonResponse,
   asyncHandler,
   ResourceNotFound,
-  BadRequest,
-  // authMiddleware,
-  // getCurrentUser,
 } from '../middlewares';
 
-class UserController {
+export class UserController {
   private userService = new UserService();
-}
 
-export const userController = new UserController();
+  public fetchUser = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const userId = req.currentUser?.id;
+      if (!userId) {
+        throw new ResourceNotFound('User not found');
+      }
+      const user = await this.userService.getCurrentUser(userId);
+      sendJsonResponse(res, 200, 'Profile retrieved successfully', user);
+    }
+  );
+
+  public updateUser = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const userId = req.currentUser?.id;
+      if (!userId) {
+        throw new ResourceNotFound('User not found');
+      }
+      const userData = req.body;
+      const user = await this.userService.updateCurrentUser(userId, userData);
+      sendJsonResponse(res, 200, 'Profile updated successfully', user);
+    }
+  );
+}

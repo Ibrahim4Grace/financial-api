@@ -1,85 +1,93 @@
 import { NextFunction, Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
-import jwt from 'jsonwebtoken';
-import { User } from '../entities';
-import { log } from '../utils/logger';
-import { ServerError } from '../middlewares';
-import { JwtPayload } from '../types/index';
+import { User, Admin } from '../entities';
+import { log, TokenService } from '../utils';
 import { Repository } from 'typeorm';
+import {
+  asyncHandler,
+  ResourceNotFound,
+  ServerError,
+  Unauthorized,
+  Forbidden,
+} from '../middlewares';
 
-// export const authMiddleware = async (
-//   req: Request & { user?: AuthenticatedUser },
-//   res: Response,
-//   next: NextFunction
-// ) => {
-//   try {
-//     const authHeader = req.headers.authorization;
+const extractToken = (req: Request): string | null => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+  return authHeader.split(' ')[1];
+};
 
-//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-//       return res.status(401).json({
-//         status_code: '401',
-//         success: false,
-//         message: 'Invalid token',
-//       });
-//     }
+export const authentication = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = extractToken(req);
+    if (!token) {
+      throw new Unauthorized('No token provided');
+    }
 
-//     const token = authHeader.split(' ')[1];
-//     if (!token) {
-//       return res.status(401).json({
-//         status_code: '401',
-//         success: false,
-//         message: 'Invalid token',
-//       });
-//     }
+    const payload = await TokenService.verifyAuthToken(token);
+    log.info('decoded.userId:', payload.userId);
 
-//     const secret = process.env.JWT_SECRET;
-//     if (!secret) {
-//       return res.status(500).json({
-//         status_code: '500',
-//         success: false,
-//         message: 'Internal server error',
-//       });
-//     }
+    const userRepository = AppDataSource.getRepository(User);
+    const adminRepository = AppDataSource.getRepository(Admin);
 
-//     jwt.verify(token, secret, async (err, decoded) => {
-//       if (err || !decoded) {
-//         return res.status(401).json({
-//           status_code: '401',
-//           success: false,
-//           message: 'Invalid token',
-//         });
-//       }
+    const user = await userRepository.findOne({
+      where: { id: payload.userId },
+    });
+    const admin = !user
+      ? await adminRepository.findOne({ where: { id: payload.userId } })
+      : null;
 
-//       log.info(decoded);
+    const currentUser = user || admin;
+    if (!currentUser) {
+      throw new Unauthorized('User not found');
+    }
 
-//       const { userId } = decoded as JwtPayload;
-//       log.info(`user with id ${userId} is logged in`);
+    req.user = {
+      user_id: currentUser.id,
+      email: currentUser.email,
+      role: currentUser.role,
+      name: currentUser.name,
+    };
+    console.log('Set req.user to:', req.user);
 
-//       // const user = await User.findOne({
-//       //   where: { id: user_id },
-//       // });
-//       const userRepository: Repository<User> =
-//         AppDataSource.getRepository(User);
-//       const user = await userRepository.findOne({ where: { id: userId } });
+    next();
+  } catch (error) {
+    log.error(error);
+    throw new ServerError('INTERNAL_SERVER_ERROR');
+  }
+};
 
-//       if (!user) {
-//         return res.status(401).json({
-//           status_code: '401',
-//           success: false,
-//           message: 'Invalid token',
-//         });
-//       }
+export const authorization = (roles: string[]) =>
+  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user?.user_id;
+    if (!userId) {
+      throw new Unauthorized('User not authenticated');
+    }
 
-//       req.user = {
-//         email: user.email,
-//         userId: user.id,
-//         name: user.name,
-//       };
+    const userRepository = AppDataSource.getRepository(User);
+    const adminRepository = AppDataSource.getRepository(Admin);
 
-//       next();
-//     });
-//   } catch (error) {
-//     log.error(error);
-//     throw new ServerError('INTERNAL_SERVER_ERROR');
-//   }
-// };
+    const user = await userRepository.findOne({ where: { id: userId } });
+    const admin = !user
+      ? await adminRepository.findOne({ where: { id: userId } })
+      : null;
+
+    const currentUser = user || admin;
+    if (!currentUser) {
+      throw new ResourceNotFound('User not found');
+    }
+
+    req.currentUser = currentUser;
+
+    if (!roles.includes(currentUser.role)) {
+      throw new Forbidden(`Access denied ${currentUser.role} isn't allowed`);
+    }
+
+    next();
+  });

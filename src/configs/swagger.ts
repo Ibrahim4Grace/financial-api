@@ -1,17 +1,17 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { version } from '../../package.json';
-import { allUserDocs } from '../docs/index';
-import dotenv from "dotenv";
+import { allAuthDocs } from '../docs/index';
+import dotenv from 'dotenv';
 
-dotenv.config()
+dotenv.config();
 
 const swaggerOptions: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.1.0',
     info: {
-      title: 'Korex-restaurant Express API with Swagger',
+      title: 'Ts authentication Express API with Swagger',
       version: version,
-      description: 'OpenAPI documentation for the Korex-restaurant project',
+      description: 'OpenAPI documentation for the Ts authentication project',
     },
     servers: [
       {
@@ -19,7 +19,7 @@ const swaggerOptions: swaggerJsdoc.Options = {
         description: 'Local server',
       },
       {
-        url: 'https://korex-restaurant.vercel.app/',
+        url: 'https://authentication.vercel.app/',
         description: 'Live server',
       },
     ],
@@ -39,10 +39,10 @@ const swaggerOptions: swaggerJsdoc.Options = {
       },
     ],
     paths: {
-      ...allUserDocs.paths,
+      ...allAuthDocs.paths,
     },
   },
-  apis: [],
+  apis: ['./src/controllers/**/*.ts'],
 };
 
 export const specs = swaggerJsdoc(swaggerOptions);

@@ -1,3 +1,5 @@
+import { User, Admin } from '../entities';
+
 export interface IUser {
   id: string;
   name: string;
@@ -8,7 +10,6 @@ export interface IUser {
   isLocked: boolean;
   createdAt: Date;
   updatedAt: Date;
-  comparePassword(password: string): Promise<boolean>;
 }
 
 export interface RegisterUserto {
@@ -46,6 +47,20 @@ export interface EmailData {
 }
 export interface JwtPayload {
   userId: string;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        user_id: string;
+        role: string;
+        email: string;
+        name: string;
+      };
+      currentUser?: User | Admin;
+    }
+  }
 }
 
 // export interface AuthenticatedUser {
